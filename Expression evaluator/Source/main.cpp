@@ -128,15 +128,16 @@ bool isOperation(Token token, char operation)
 
 void simplifyTokens(std::vector<Token>& tokens)
 {
-	for (int32_t i = 1; i < tokens.size() - 1; ++i)
+	for (int32_t i = 0; i < tokens.size() - 1; ++i)
 	{
 		if (i + 1 < tokens.size() && isOperation(tokens[i], '+') && isOperation(tokens[i + 1], '(')
-			&& tokens[i - 1].type != Token::NUMBER)
+			&& (i - 1 < 0 || tokens[i - 1].type != Token::NUMBER))
 		{
 			tokens.erase(tokens.begin() + i, tokens.begin() + i + 1);
 		}
 
-		if (i + 1 < tokens.size() && isOperation(tokens[i], '-') && isOperation(tokens[i + 1], '('))
+		if (i + 1 < tokens.size() && isOperation(tokens[i], '-') && isOperation(tokens[i + 1], '(')
+			&& (i - 1 < 0 || tokens[i - 1].type != Token::NUMBER))
 		{
 			tokens.erase(tokens.begin() + i, tokens.begin() + i + 1);
 			int32_t brackets = 1;
@@ -333,7 +334,7 @@ void printTokens(const std::vector<Token>& tokens)
 
 int main()
 {
-	std::cout << "Expression evaluator v1.0. Support integers, four operations(+, -, *, /) and brakets.\n";
+	std::cout << "Expression evaluator v1.1. Support integers, four operations(+, -, *, /) and brakets.\n";
 	while (true)
 	{
 		std::cout << "Enter expression: ";
