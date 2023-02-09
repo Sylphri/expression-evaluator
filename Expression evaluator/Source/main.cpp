@@ -60,7 +60,7 @@ std::vector<Token> getTokens(const std::string& expression)
 		if (operations.find(expression[i]) != std::string::npos)
 		{
 			if (i < expression.size() - 1 && std::isdigit(expression[i + 1]) && expression[i] == '-'
-				&& (tokens.empty() || tokens.back().type == Token::OPERATION))
+				&& (tokens.empty() || tokens.back().type == Token::OPERATION) && tokens.back().operation != ')')
 			{
 				nextNegative = true;
 				continue;
@@ -119,6 +119,40 @@ void verifyerErrorPrint(const std::vector<Token>& tokens, int32_t errorToken, co
 	std::string line(expression.size(), '-');
 	line[position] = '^';
 	std::cout << expression << std::endl << line << std::endl;
+}
+
+bool isOperation(Token token, char operation)
+{
+	return token.type == Token::OPERATION && token.operation == operation;
+}
+
+void simplifyTokens(std::vector<Token>& tokens)
+{
+	for (int32_t i = 1; i < tokens.size() - 1; ++i)
+	{
+		if (i + 1 < tokens.size() && isOperation(tokens[i], '+') && isOperation(tokens[i + 1], '(')
+			&& tokens[i - 1].type != Token::NUMBER)
+		{
+			tokens.erase(tokens.begin() + i, tokens.begin() + i + 1);
+		}
+
+		if (i + 1 < tokens.size() && isOperation(tokens[i], '-') && isOperation(tokens[i + 1], '('))
+		{
+			tokens.erase(tokens.begin() + i, tokens.begin() + i + 1);
+			int32_t brackets = 1;
+			for (int32_t j = i + 1; j < tokens.size() && brackets > 0; ++j)
+			{
+				if (isOperation(tokens[j], ')'))
+				{
+					--brackets;
+					continue;
+				}
+
+				if (tokens[j].type == Token::NUMBER)
+					tokens[j].number *= -1;
+			}
+		}
+	}
 }
 
 bool verifyTokens(const std::vector<Token>& tokens)
@@ -285,6 +319,18 @@ double evaluateTokens(const std::vector<Token>& tokens)
 	return numbers.size() > 0 ? numbers[0] : 0;
 }
 
+void printTokens(const std::vector<Token>& tokens)
+{
+	std::cout << "Tokens:\n";
+	for (Token token : tokens)
+	{
+		if (token.type == Token::NUMBER)
+			std::cout << "Type: number,    Value: " << token.number << std::endl;
+		else
+			std::cout << "Type: operation, Value: " << token.operation << std::endl;
+	}
+}
+
 int main()
 {
 	std::cout << "Expression evaluator v1.0. Support integers, four operations(+, -, *, /) and brakets.\n";
@@ -295,14 +341,7 @@ int main()
 		std::getline(std::cin, expression);
 		std::vector<Token> tokens = getTokens(expression);
 		if (tokens.size() == 0) continue;
-		std::cout << "Tokens:\n";
-		for (Token& token : tokens)
-		{
-			if (token.type == Token::NUMBER)
-				std::cout << "Type: number,    Value: " << token.number << std::endl;
-			else
-				std::cout << "Type: operation, Value: " << token.operation << std::endl;
-		}
+		simplifyTokens(tokens);
 		if (verifyTokens(tokens))
 			std::cout << "result: " << evaluateTokens(tokens) << "\n\n";
 	}
