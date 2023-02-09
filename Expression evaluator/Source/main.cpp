@@ -44,7 +44,7 @@ void tokenizerErrorPrint(const std::string& message, const std::string& expressi
 
 std::vector<Token> getTokens(const std::string& expression)
 {
-	static const std::string operations = "+-/*()";
+	static const std::string operations = "+-/*^()";
 
 	std::vector<Token> tokens;
 	bool lastDigit = false;
@@ -184,25 +184,18 @@ void simplifyTokens(std::vector<Token>& tokens)
 		if (i + 1 < tokens.size() && isOperation(tokens[i], '-') && isOperation(tokens[i + 1], '(')
 			&& (i - 1 < 0 || tokens[i - 1].type != Token::NUMBER))
 		{
-			tokens.erase(tokens.begin() + i, tokens.begin() + i + 1);
+			tokens[i] = Token('(');
+			tokens.insert(tokens.begin() + i + 1, { Token(-1.0), Token('*') });
 			int32_t brackets = 1;
-			for (int32_t j = i + 1; j < tokens.size() && brackets > 0; ++j)
+			int32_t j = i + 4;
+			for (; j < tokens.size() && brackets > 0; ++j)
 			{
-				if (isOperation(tokens[j], ')'))
-				{
-					--brackets;
-					continue;
-				}
-
 				if (isOperation(tokens[j], '('))
-				{
 					++brackets;
-					continue;
-				}
-
-				if (tokens[j].type == Token::NUMBER)
-					tokens[j].number *= -1;
+				else if (isOperation(tokens[j], ')'))
+					--brackets;
 			}
+			tokens.insert(tokens.begin() + j, Token(')'));
 		}
 	}
 }
@@ -303,6 +296,9 @@ void evaluateOperation(std::vector<double>& numbers, char operation)
 	case '/':
 		numbers.push_back(first / second);
 		break;
+	case '^':
+		numbers.push_back(pow(first, second));
+		break;
 	}
 }
 
@@ -310,7 +306,8 @@ double evaluateTokens(const std::vector<Token>& tokens)
 {
 	static std::unordered_map<char, int8_t> operationPriorities = {
 		{'+', 1}, {'-', 1},
-		{'*', 2}, {'/', 2}
+		{'*', 2}, {'/', 2},
+		{'^', 3}
 	};
 
 	std::vector<double> numbers;
