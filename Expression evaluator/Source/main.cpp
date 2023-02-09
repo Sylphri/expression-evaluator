@@ -11,7 +11,7 @@ struct Token
 {
 	union
 	{
-		int32_t number;
+		double number;
 		char operation;
 	};
 
@@ -22,7 +22,25 @@ struct Token
 	};
 
 	TokenType type;
+
+	Token(double number, TokenType type = Token::NUMBER)
+		: number(number), type(type)
+	{
+	}
+
+	Token(char operation, TokenType type = Token::OPERATION)
+		: operation(operation), type(type)
+	{
+	}
 };
+
+void tokenizerErrorPrint(const std::string& message, const std::string& expression, int32_t errorPosition)
+{
+	std::string line(expression.size(), '-');
+	line[errorPosition] = '^';
+	std::cout << expression << std::endl << line << std::endl;
+	std::cout << "[Tokenizer Error]: " << message;
+}
 
 std::vector<Token> getTokens(const std::string& expression)
 {
@@ -31,18 +49,43 @@ std::vector<Token> getTokens(const std::string& expression)
 	std::vector<Token> tokens;
 	bool lastDigit = false;
 	bool nextNegative = false;
-	int32_t number = 0;
+	bool fractionalPart = false;
+	double number = 0;
+	double koefficient = 0.1;
 
-	for (size_t i = 0; i < expression.size(); i++)
+	for (int32_t i = 0; i < expression.size(); i++)
 	{
+		if (expression[i] == '.')
+		{
+			if((i - 1 < 0 || !std::isdigit(expression[i - 1]))
+				&& (i + 1 >= expression.size() || !std::isdigit(expression[i + 1])))
+			{
+				std::stringstream stream;
+				stream << "Incorrect syntax at position " << i + 1 << std::endl;
+				tokenizerErrorPrint(stream.str(), expression, i);
+				return {};
+			}
+
+			fractionalPart = true;
+			continue;
+		}
+
 		if (std::isdigit(static_cast<unsigned char>(expression[i])))
 		{
-			number *= 10;
-			number += expression[i] - '0';
+			if (fractionalPart)
+			{
+				number += (expression[i] - '0') * koefficient;
+				koefficient /= 10;
+			}
+			else
+			{
+				number *= 10;
+				number += expression[i] - '0';
+			}
 			lastDigit = true;
 			continue;
 		}
-		else if (lastDigit)
+		if (lastDigit)
 		{
 			if (nextNegative)
 			{
@@ -50,9 +93,11 @@ std::vector<Token> getTokens(const std::string& expression)
 				nextNegative = false;
 			}
 
-			tokens.push_back({ number, Token::NUMBER });
+			tokens.push_back(Token(number));
 			number = 0;
+			koefficient = 0.1;
 			lastDigit = false;
+			fractionalPart = false;
 		}
 
 		if (expression[i] == ' ') continue;
@@ -60,36 +105,32 @@ std::vector<Token> getTokens(const std::string& expression)
 		if (operations.find(expression[i]) != std::string::npos)
 		{
 			if (i < expression.size() - 1 && std::isdigit(expression[i + 1]) && expression[i] == '+'
-				&& (tokens.empty() || tokens.back().type == Token::OPERATION) && tokens.back().operation != ')')
+				&& (tokens.empty() || tokens.back().type == Token::OPERATION && tokens.back().operation != ')'))
 				continue;
 
-			if (i < expression.size() - 1 && std::isdigit(expression[i + 1]) && expression[i] == '-'
-				&& (tokens.empty() || tokens.back().type == Token::OPERATION) && tokens.back().operation != ')')
+			if (i < expression.size() - 1 && (std::isdigit(expression[i + 1]) || expression[i + 1] == '.') && expression[i] == '-'
+				&& (tokens.empty() || tokens.back().type == Token::OPERATION && tokens.back().operation != ')'))
 			{
 				nextNegative = true;
 				continue;
 			}
 
-			tokens.push_back({ expression[i], Token::OPERATION });
+			tokens.push_back(Token(expression[i]));
 			continue;
 		}
 
-		std::cout << "[Tokenizer Error]: Unknown symbol \"" << static_cast<unsigned char>(expression[i]) 
+		std::stringstream stream;
+		stream << "Unknown symbol \"" << static_cast<unsigned char>(expression[i]) 
 			<< "\" at position " << i + 1 << std::endl;
-		std::string line(expression.size(), '-');
-		line[i] = '^';
-		std::cout << expression << std::endl << line << std::endl;
+		tokenizerErrorPrint(stream.str(), expression, i);
 		return {};
 	}
 
 	if (lastDigit)
 	{
 		if (nextNegative)
-		{
 			number *= -1;
-			nextNegative = false;
-		}
-		tokens.push_back({ number, Token::NUMBER });
+		tokens.push_back(Token(number));
 	}
 
 	return tokens;
@@ -168,12 +209,6 @@ void simplifyTokens(std::vector<Token>& tokens)
 
 bool verifyTokens(const std::vector<Token>& tokens)
 {
-	if (tokens.size() < 3)
-	{
-		std::cout << "[Verifyer Error]: Invalid expression\n";
-		return false;
-	}
-
 	int32_t brackets = 0;
 	for (int32_t i = 0; i < tokens.size(); i++)
 	{
@@ -344,7 +379,7 @@ void printTokens(const std::vector<Token>& tokens)
 
 int main()
 {
-	std::cout << "Expression evaluator v1.1. Support integers, four operations(+, -, *, /) and brakets.\n";
+	std::cout << "Expression evaluator v1.2. Support integers, real numbers, four operations(+, -, *, /) and brakets.\n";
 	while (true)
 	{
 		std::cout << "Enter expression: ";
