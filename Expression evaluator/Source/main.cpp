@@ -59,6 +59,10 @@ std::vector<Token> getTokens(const std::string& expression)
 
 		if (operations.find(expression[i]) != std::string::npos)
 		{
+			if (i < expression.size() - 1 && std::isdigit(expression[i + 1]) && expression[i] == '+'
+				&& (tokens.empty() || tokens.back().type == Token::OPERATION) && tokens.back().operation != ')')
+				continue;
+
 			if (i < expression.size() - 1 && std::isdigit(expression[i + 1]) && expression[i] == '-'
 				&& (tokens.empty() || tokens.back().type == Token::OPERATION) && tokens.back().operation != ')')
 			{
@@ -146,6 +150,12 @@ void simplifyTokens(std::vector<Token>& tokens)
 				if (isOperation(tokens[j], ')'))
 				{
 					--brackets;
+					continue;
+				}
+
+				if (isOperation(tokens[j], '('))
+				{
+					++brackets;
 					continue;
 				}
 
