@@ -42,23 +42,73 @@ void tokenizerErrorPrint(const std::string& message, const std::string& expressi
 	std::cout << "[Tokenizer Error]: " << message;
 }
 
+int32_t getIntegerPart(const std::string& expression, int32_t begin, int32_t& outEnd)
+{
+	int32_t number = 0;
+	int32_t i = begin;
+	for (; i < expression.size(); i++)
+	{
+		if (!std::isdigit(expression[i]))
+			break;
+
+		number *= 10;
+		number += expression[i] - '0';
+	}
+	outEnd = i - 1;
+	return number;
+}
+
+double getFractionalPart(const std::string& expression, int32_t begin, int32_t& outEnd)
+{
+	double fraction = 0;
+	double koefficient = 0.1;
+	int32_t i = begin;
+	for (; i < expression.size(); i++)
+	{
+		if (!std::isdigit(expression[i]))
+			break;
+
+		fraction += (expression[i] - '0') * koefficient;
+		koefficient *= 0.1;
+	}
+	outEnd = i - 1;
+	return fraction;
+}
+
+bool isNoneDigitsAround(const std::string& expression, int32_t position)
+{
+	return (position - 1 < 0 || !std::isdigit(expression[position - 1]))
+		&& (position + 1 >= expression.size() || !std::isdigit(expression[position - 1]));
+}
+
+bool isDigitOrDot(const std::string& expression, int32_t position)
+{
+	return std::isdigit(expression[position]) || expression[position] == '.';
+}
+
+bool isOperation(Token token, char operation)
+{
+	return token.type == Token::OPERATION && token.operation == operation;
+}
+
+bool isUnaryOperation(const std::vector<Token>& tokens)
+{
+	return tokens.empty() || tokens.back().type == Token::OPERATION && tokens.back().operation != ')';
+}
+
 std::vector<Token> getTokens(const std::string& expression)
 {
 	static const std::string operations = "+-/*^()";
 
 	std::vector<Token> tokens;
-	bool lastDigit = false;
 	bool nextNegative = false;
-	bool fractionalPart = false;
 	double number = 0;
-	double koefficient = 0.1;
 
 	for (int32_t i = 0; i < expression.size(); i++)
 	{
 		if (expression[i] == '.')
 		{
-			if(fractionalPart || (i - 1 < 0 || !std::isdigit(expression[i - 1]))
-				&& (i + 1 >= expression.size() || !std::isdigit(expression[i + 1])))
+			if(isNoneDigitsAround(expression, i))
 			{
 				std::stringstream stream;
 				stream << "Incorrect syntax at position " << i + 1 << std::endl;
@@ -66,50 +116,33 @@ std::vector<Token> getTokens(const std::string& expression)
 				return {};
 			}
 
-			fractionalPart = true;
+			number += getFractionalPart(expression, i + 1, i);
+			tokens.push_back(Token(nextNegative ? -number : number));
+			nextNegative = false;
 			continue;
 		}
 
-		if (std::isdigit(static_cast<unsigned char>(expression[i])))
+		if (std::isdigit(static_cast<uint8_t>(expression[i])))
 		{
-			if (fractionalPart)
+			number = getIntegerPart(expression, i, i);
+			if (i + 1 >= expression.size() || expression[i + 1] != '.')
 			{
-				number += (expression[i] - '0') * koefficient;
-				koefficient /= 10;
-			}
-			else
-			{
-				number *= 10;
-				number += expression[i] - '0';
-			}
-			lastDigit = true;
-			continue;
-		}
-		if (lastDigit)
-		{
-			if (nextNegative)
-			{
-				number *= -1;
+				tokens.push_back(Token(nextNegative ? -number : number));
 				nextNegative = false;
 			}
-
-			tokens.push_back(Token(number));
-			number = 0;
-			koefficient = 0.1;
-			lastDigit = false;
-			fractionalPart = false;
+			continue;
 		}
 
 		if (expression[i] == ' ') continue;
 
 		if (operations.find(expression[i]) != std::string::npos)
 		{
-			if (i < expression.size() - 1 && std::isdigit(expression[i + 1]) && expression[i] == '+'
-				&& (tokens.empty() || tokens.back().type == Token::OPERATION && tokens.back().operation != ')'))
+			if (i + 1 < expression.size() && isDigitOrDot(expression, i + 1) && expression[i] == '+' 
+				&& isUnaryOperation(tokens))
 				continue;
 
-			if (i < expression.size() - 1 && (std::isdigit(expression[i + 1]) || expression[i + 1] == '.') && expression[i] == '-'
-				&& (tokens.empty() || tokens.back().type == Token::OPERATION && tokens.back().operation != ')'))
+			if (i + 1 < expression.size() && isDigitOrDot(expression, i + 1) && expression[i] == '-'
+				&& isUnaryOperation(tokens))
 			{
 				nextNegative = true;
 				continue;
@@ -124,13 +157,6 @@ std::vector<Token> getTokens(const std::string& expression)
 			<< "\" at position " << i + 1 << std::endl;
 		tokenizerErrorPrint(stream.str(), expression, i);
 		return {};
-	}
-
-	if (lastDigit)
-	{
-		if (nextNegative)
-			number *= -1;
-		tokens.push_back(Token(number));
 	}
 
 	return tokens;
@@ -164,11 +190,6 @@ void verifyerErrorPrint(const std::vector<Token>& tokens, int32_t errorToken, co
 	std::string line(expression.size(), '-');
 	line[position] = '^';
 	std::cout << expression << std::endl << line << std::endl;
-}
-
-bool isOperation(Token token, char operation)
-{
-	return token.type == Token::OPERATION && token.operation == operation;
 }
 
 void simplifyTokens(std::vector<Token>& tokens)
@@ -376,13 +397,14 @@ void printTokens(const std::vector<Token>& tokens)
 
 int main()
 {
-	std::cout << "Expression evaluator v1.3. Support integers, real numbers, five operations(+, -, *, /, ^) and brakets.\n";
+	std::cout << "Expression evaluator v1.3. Support integers, real numbers, five operations(+, -, *, /, ^) and brackets.\n";
 	while (true)
 	{
 		std::cout << "Enter expression: ";
 		std::string expression;
 		std::getline(std::cin, expression);
 		std::vector<Token> tokens = getTokens(expression);
+		printTokens(tokens);
 		if (tokens.size() == 0) continue;
 		simplifyTokens(tokens);
 		if (verifyTokens(tokens))
