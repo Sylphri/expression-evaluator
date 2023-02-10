@@ -34,12 +34,48 @@ struct Token
 	}
 };
 
+bool isOperation(Token token, char operation)
+{
+	return token.type == Token::OPERATION && token.operation == operation;
+}
+
+std::string concatTokens(const std::vector<Token> tokens, int32_t highlightToken, int32_t& outPosition)
+{
+	std::string expression;
+	int32_t position = 0;
+	for (int32_t i = 0; i < tokens.size(); i++)
+	{
+		if (i <= highlightToken)
+			position = expression.size();
+		if (isOperation(tokens[i], ')') && expression.back() != '(')
+			expression.pop_back();
+		int32_t size = expression.size();
+		expression += (tokens[i].type == Token::NUMBER ? std::to_string(tokens[i].number)
+			: std::string(1, tokens[i].operation)) + " ";
+		if (isOperation(tokens[i], '('))
+			expression.pop_back();
+	}
+	expression.pop_back();
+	outPosition = position;
+	return expression;
+}
+
 void tokenizerErrorPrint(const std::string& message, const std::string& expression, int32_t errorPosition)
 {
 	std::string line(expression.size(), '-');
 	line[errorPosition] = '^';
 	std::cout << expression << std::endl << line << std::endl;
 	std::cout << "[Tokenizer Error]: " << message;
+}
+
+void verifyerErrorPrint(const std::vector<Token>& tokens, int32_t errorToken, const std::string& message)
+{
+	int32_t position;
+	std::string expression = concatTokens(tokens, errorToken, position);
+	std::cout << "[Verifyer Error]: " << message << std::endl;
+	std::string line(expression.size(), '-');
+	line[position] = '^';
+	std::cout << expression << std::endl << line << std::endl;
 }
 
 int32_t getIntegerPart(const std::string& expression, int32_t begin, int32_t& outEnd)
@@ -84,11 +120,6 @@ bool isNoneDigitsAround(const std::string& expression, int32_t position)
 bool isDigitOrDot(const std::string& expression, int32_t position)
 {
 	return std::isdigit(expression[position]) || expression[position] == '.';
-}
-
-bool isOperation(Token token, char operation)
-{
-	return token.type == Token::OPERATION && token.operation == operation;
 }
 
 bool isUnaryOperation(const std::vector<Token>& tokens)
@@ -162,48 +193,26 @@ std::vector<Token> getTokens(const std::string& expression)
 	return tokens;
 }
 
-std::string concatTokens(const std::vector<Token> tokens, int32_t highlightToken, int32_t& outPosition)
+bool isNoneBeforeOrOperation(const std::vector<Token>& tokens, int32_t position)
 {
-	std::string expression;
-	int32_t position = 0;
-	for (int32_t i = 0; i < tokens.size(); i++)
-	{
-		if (i <= highlightToken)
-			position = expression.size();
-		if (tokens[i].type == Token::OPERATION && tokens[i].operation == ')')
-			expression.pop_back();
-		int32_t size = expression.size();
-		expression += (tokens[i].type == Token::NUMBER ? std::to_string(tokens[i].number)
-			: std::string(1, tokens[i].operation)) + " ";
-		if (tokens[i].type == Token::OPERATION && tokens[i].operation == '(')
-			expression.pop_back();
-	}
-	outPosition = position;
-	return expression;
+	return position - 1 < 0 || tokens[position - 1].type == Token::OPERATION;
 }
 
-void verifyerErrorPrint(const std::vector<Token>& tokens, int32_t errorToken, const std::string& message)
+bool isNextThatOperation(const std::vector<Token>& tokens, int32_t position, char operation)
 {
-	int32_t position;
-	std::string expression = concatTokens(tokens, errorToken, position);
-	std::cout << "[Verifyer Error]: " << message << std::endl;
-	std::string line(expression.size(), '-');
-	line[position] = '^';
-	std::cout << expression << std::endl << line << std::endl;
+	return position + 1 < tokens.size() && isOperation(tokens[position + 1], operation);
 }
 
 void simplifyTokens(std::vector<Token>& tokens)
 {
 	for (int32_t i = 0; i < tokens.size() - 1; ++i)
 	{
-		if (i + 1 < tokens.size() && isOperation(tokens[i], '+') && isOperation(tokens[i + 1], '(')
-			&& (i - 1 < 0 || tokens[i - 1].type != Token::NUMBER))
+		if (isOperation(tokens[i], '+') && isNextThatOperation(tokens, i, '(') && isNoneBeforeOrOperation(tokens, i))
 		{
 			tokens.erase(tokens.begin() + i, tokens.begin() + i + 1);
 		}
 
-		if (i + 1 < tokens.size() && isOperation(tokens[i], '-') && isOperation(tokens[i + 1], '(')
-			&& (i - 1 < 0 || tokens[i - 1].type != Token::NUMBER))
+		if (isOperation(tokens[i], '-') && isNextThatOperation(tokens, i, '(') && isNoneBeforeOrOperation(tokens, i))
 		{
 			tokens[i] = Token('(');
 			tokens.insert(tokens.begin() + i + 1, { Token(-1.0), Token('*') });
@@ -221,6 +230,16 @@ void simplifyTokens(std::vector<Token>& tokens)
 	}
 }
 
+bool isThatNotBracket(Token token)
+{
+	return token.type == Token::OPERATION && (token.operation != '(' && token.operation != ')');
+}
+
+bool hasNotTwoNeighbourTokens(const std::vector<Token>& tokens, int32_t position)
+{
+	return position - 1 < 0 && position + 1 == tokens.size();
+}
+
 bool verifyTokens(const std::vector<Token>& tokens)
 {
 	int32_t brackets = 0;
@@ -234,8 +253,8 @@ bool verifyTokens(const std::vector<Token>& tokens)
 				brackets--;
 		}
 
-		if (i + 1 < tokens.size() && tokens[i].type == Token::OPERATION && tokens[i + 1].type == Token::OPERATION
-			&& tokens[i].operation != '(' && tokens[i].operation != ')' && tokens[i + 1].operation == '(')
+		if(tokens[i].type == Token::OPERATION && !isOperation(tokens[i], '(') && !isOperation(tokens[i], ')')
+			&& isNextThatOperation(tokens, i, '('))
 		{
 			i++;
 			brackets++;
@@ -245,39 +264,41 @@ bool verifyTokens(const std::vector<Token>& tokens)
 		if (i + 1 < tokens.size() && tokens[i].type == Token::NUMBER && tokens[i + 1].type == Token::NUMBER)
 		{
 			std::stringstream stream;
-			stream << "Two number in a row[" << tokens[i].number
-				<< ", " << tokens[i + 1].number << "]";
+			stream << "Two number in a row[" << tokens[i].number << ", " << tokens[i + 1].number << "]";
 			verifyerErrorPrint(tokens, i, stream.str());
 			return false;
 		}
 
-		if (i + 1 < tokens.size() && tokens[i].type == Token::OPERATION && tokens[i + 1].type == Token::NUMBER
-			&& tokens[i].operation == ')')
+		if (isOperation(tokens[i], ')') && i + 1 < tokens.size() && tokens[i + 1].type == Token::NUMBER)
 		{
 			std::stringstream stream;
-			stream << "Missing operation [" << tokens[i].operation
-				<< ", " << tokens[i + 1].number << "]";
+			stream << "Missing operation [" << tokens[i].operation << ", " << tokens[i + 1].number << "]";
 			verifyerErrorPrint(tokens, i, stream.str());
 			return false;
 		}
 
-		if (i + 1 < tokens.size() && tokens[i].type == Token::NUMBER && tokens[i + 1].type == Token::OPERATION
-			&& tokens[i + 1].operation == '(')
+		if (tokens[i].type == Token::NUMBER && isNextThatOperation(tokens, i, '('))
 		{
 			std::stringstream stream;
-			stream << "Missing operation [" << tokens[i].number
-				<< ", " << tokens[i + 1].operation << "]";
+			stream << "Missing operation [" << tokens[i].number << ", " << tokens[i + 1].operation << "]";
 			verifyerErrorPrint(tokens, i, stream.str());
 			return false;
 		}
 
-		if (tokens[i].type == Token::OPERATION && tokens[i].operation != '(' && tokens[i].operation != ')'
-			&& ((i - 1 < 0 || i + 1 == tokens.size())
-			|| tokens[i - 1].type != Token::NUMBER && tokens[i - 1].operation != ')' 
-			|| tokens[i + 1].type != Token::NUMBER && tokens[i + 1].operation != '('))
+		if (isThatNotBracket(tokens[i]) && (hasNotTwoNeighbourTokens(tokens, i)
+			|| tokens[i - 1].type == Token::OPERATION && tokens[i - 1].operation != ')'
+			|| tokens[i + 1].type == Token::OPERATION && tokens[i + 1].operation != '('))
 		{
 			std::stringstream stream;
 			stream << "Missing operation argument [" << tokens[i].operation << "]";
+			verifyerErrorPrint(tokens, i, stream.str());
+			return false;
+		}
+
+		if (isOperation(tokens[i], '(') && i + 1 < tokens.size() && isOperation(tokens[i + 1], ')'))
+		{
+			std::stringstream stream;
+			stream << "Empty brackets";
 			verifyerErrorPrint(tokens, i, stream.str());
 			return false;
 		}
@@ -404,7 +425,6 @@ int main()
 		std::string expression;
 		std::getline(std::cin, expression);
 		std::vector<Token> tokens = getTokens(expression);
-		printTokens(tokens);
 		if (tokens.size() == 0) continue;
 		simplifyTokens(tokens);
 		if (verifyTokens(tokens))
