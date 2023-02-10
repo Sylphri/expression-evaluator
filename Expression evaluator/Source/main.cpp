@@ -57,7 +57,7 @@ std::vector<Token> getTokens(const std::string& expression)
 	{
 		if (expression[i] == '.')
 		{
-			if((i - 1 < 0 || !std::isdigit(expression[i - 1]))
+			if(fractionalPart || (i - 1 < 0 || !std::isdigit(expression[i - 1]))
 				&& (i + 1 >= expression.size() || !std::isdigit(expression[i + 1])))
 			{
 				std::stringstream stream;
@@ -376,7 +376,7 @@ void printTokens(const std::vector<Token>& tokens)
 
 int main()
 {
-	std::cout << "Expression evaluator v1.2. Support integers, real numbers, four operations(+, -, *, /) and brakets.\n";
+	std::cout << "Expression evaluator v1.3. Support integers, real numbers, five operations(+, -, *, /, ^) and brakets.\n";
 	while (true)
 	{
 		std::cout << "Enter expression: ";
