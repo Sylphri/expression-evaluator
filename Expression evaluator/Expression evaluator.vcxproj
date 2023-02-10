@@ -143,7 +143,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Source\Evaluator.cpp" />
     <ClCompile Include="Source\main.cpp" />
+    <ClCompile Include="Source\Simplifyer.cpp" />
+    <ClCompile Include="Source\Tokenizer.cpp" />
+    <ClCompile Include="Source\Utilities.cpp" />
+    <ClCompile Include="Source\Verifyer.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Source\Evaluator.hpp" />
+    <ClInclude Include="Source\Simplifyer.hpp" />
+    <ClInclude Include="Source\Token.hpp" />
+    <ClInclude Include="Source\Tokenizer.hpp" />
+    <ClInclude Include="Source\Utilities.hpp" />
+    <ClInclude Include="Source\Verifyer.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
