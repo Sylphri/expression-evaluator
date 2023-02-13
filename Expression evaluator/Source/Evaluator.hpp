@@ -8,7 +8,7 @@
 struct EvaluateResult
 {
 	double value;
-	bool succes;
+	bool success;
 };
 
 void evaluateOperation(std::vector<double>& numbers, char operation);

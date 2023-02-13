@@ -11,9 +11,9 @@ bool isThatNotBracket(Token token)
 	return token.type == Token::OPERATION && (token.operation != '(' && token.operation != ')');
 }
 
-bool hasNotTwoNeighbourTokens(const std::vector<Token>& tokens, int32_t position)
+bool hasTwoNeighbourTokens(const std::vector<Token>& tokens, int32_t position)
 {
-	return position - 1 < 0 && position + 1 == tokens.size();
+	return position - 1 >= 0 && position + 1 < tokens.size();
 }
 
 bool verifyTokens(const std::vector<Token>& tokens)
@@ -61,7 +61,7 @@ bool verifyTokens(const std::vector<Token>& tokens)
 			return false;
 		}
 
-		if (isThatNotBracket(tokens[i]) && (hasNotTwoNeighbourTokens(tokens, i)
+		if (isThatNotBracket(tokens[i]) && (!hasTwoNeighbourTokens(tokens, i)
 			|| tokens[i - 1].type == Token::OPERATION && tokens[i - 1].operation != ')'
 			|| tokens[i + 1].type == Token::OPERATION && tokens[i + 1].operation != '('))
 		{

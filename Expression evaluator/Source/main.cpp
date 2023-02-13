@@ -12,7 +12,7 @@ int main()
 		std::string expression;
 		std::getline(std::cin, expression);
 		EvaluateResult result = evaluate(expression);
-		if (result.succes)
+		if (result.success)
 			std::cout << "result: " << result.value << std::endl;
 	}
 }

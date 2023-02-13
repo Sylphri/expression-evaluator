@@ -3,21 +3,18 @@
 #include "Token.hpp"
 #include "Utilities.hpp"
 
-bool isNoneBeforeOrOperation(const std::vector<Token>& tokens, int32_t position)
-{
-	return position - 1 < 0 || tokens[position - 1].type == Token::OPERATION;
-}
-
 void simplifyTokens(std::vector<Token>& tokens)
 {
 	for (int32_t i = 0; i < tokens.size() - 1; ++i)
 	{
-		if (isOperation(tokens[i], '+') && isNextThatOperation(tokens, i, '(') && isNoneBeforeOrOperation(tokens, i))
+		if (isOperation(tokens[i], '+') && isNextThatOperation(tokens, i, '(') && 
+			(i - 1 < 0 || tokens[i - 1].type == Token::OPERATION && tokens[i - 1].operation != ')'))
 		{
 			tokens.erase(tokens.begin() + i, tokens.begin() + i + 1);
 		}
 
-		if (isOperation(tokens[i], '-') && isNextThatOperation(tokens, i, '(') && isNoneBeforeOrOperation(tokens, i))
+		if (isOperation(tokens[i], '-') && isNextThatOperation(tokens, i, '(')
+			&& (i - 1 < 0 || tokens[i - 1].type == Token::OPERATION && tokens[i - 1].operation != ')'))
 		{
 			tokens[i] = Token('(');
 			tokens.insert(tokens.begin() + i + 1, { Token(-1.0), Token('*') });
