@@ -37,7 +37,7 @@ double fractionalPart(const std::string &expression, int32_t begin, int32_t &out
 bool isNoneDigitsAround(const std::string &expression, int32_t position) {
     return (position - 1 < 0 || !std::isdigit(expression[position - 1]))
            && (position + 1 >= expression.size()
-               || !std::isdigit(expression[position - 1]));
+               || !std::isdigit(expression[position + 1]));
 }
 
 bool isDigitOrDot(const std::string &expression, int32_t position) {
@@ -54,11 +54,12 @@ std::vector<Token> getTokens(const std::string &expression) {
 
     std::vector<Token> tokens;
     bool nextNegative = false;
+    bool lastFraction = false;
     double number = 0;
 
     for (int32_t i = 0; i < expression.size(); i++) {
         if (expression[i] == '.') {
-            if (isNoneDigitsAround(expression, i)) {
+            if (isNoneDigitsAround(expression, i) || lastFraction) {
                 std::stringstream stream;
                 stream << "Incorrect syntax at position " << i + 1 << std::endl;
                 tokenizerErrorPrint(stream.str(), expression, i);
@@ -67,7 +68,9 @@ std::vector<Token> getTokens(const std::string &expression) {
 
             number += fractionalPart(expression, i + 1, i);
             tokens.push_back(Token(nextNegative ? -number : number));
+            number = 0;
             nextNegative = false;
+            lastFraction = true;
             continue;
         }
 
@@ -77,6 +80,7 @@ std::vector<Token> getTokens(const std::string &expression) {
                 tokens.push_back(Token(nextNegative ? -number : number));
                 nextNegative = false;
             }
+            lastFraction = false;
             continue;
         }
 
@@ -84,6 +88,8 @@ std::vector<Token> getTokens(const std::string &expression) {
             continue;
 
         if (operations.find(expression[i]) != std::string::npos) {
+            lastFraction = false;
+
             if (i + 1 < expression.size() && isDigitOrDot(expression, i + 1)
                 && expression[i] == '+' && isUnaryOperation(tokens))
                 continue;
